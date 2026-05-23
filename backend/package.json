@@ -1,13 +1,13 @@
 {
   "name": "sistema-turistico-backend",
   "version": "1.0.0",
-  "description": "Backend API REST para Sistema de Venta de Servicios Turísticos",
+  "description": "Backend API REST para Sistema de Venta de Servicios Turisticos",
   "main": "src/server.js",
   "type": "module",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "echo "Error: no test specified" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": ["tourism", "api", "rest", "supabase"],
   "author": "Juan Cabral",
@@ -19,8 +19,5 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {
-    "nodemon": "^3.1.4"
   }
 }

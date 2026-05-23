@@ -9,6 +9,7 @@ import CarritoPage from './pages/CarritoPage';
 import Checkout from './pages/Checkout';
 import AdminPanel from './pages/AdminPanel';
 import MisReservas from './pages/MisReservas';
+import LoginPage from './pages/LoginPage'; // ← NUEVO
 
 const RutaProtegida = ({ children }) => {
   const { esAdmin } = useApp();
@@ -28,6 +29,7 @@ function App() {
               <Route path="/carrito" element={<CarritoPage />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/mis-reservas" element={<MisReservas />} />
+              <Route path="/login" element={<LoginPage />} /> {/* ← NUEVO */}
               <Route path="/admin" element={
                 <RutaProtegida>
                   <AdminPanel />

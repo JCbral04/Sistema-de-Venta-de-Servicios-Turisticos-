@@ -4,49 +4,73 @@ import { formatResponse, handleError } from '../utils/helpers.js';
 // GET /api/catalogo/servicios
 export const getServicios = async (req, res) => {
   try {
-    const { region, pais, categoria, disponible = true } = req.query;
+    const { pais, categoria, disponible = 'true' } = req.query;
 
+    // Primero obtener servicios con joins manuales
     let query = supabase
       .from('servicios')
-      .select(`
-        id_servicio,
-        nombre,
-        descripcion,
-        precio,
-        estado,
-        cupos_disponibles,
-        imagen,
-        duracion,
-        ciudades!inner(id_ciudad, nombre_ciudad, paises!inner(id_pais, nombre_pais, codigo_iso)),
-        categorias!inner(id_categoria, nombre_categoria)
-      `);
+      .select('*');
 
     if (disponible === 'true') {
       query = query.eq('estado', 'disponible');
     }
 
-    const { data, error } = await query;
+    // Aplicar filtros si existen
+    if (pais) {
+      // Necesitamos filtrar por país a través de la relación ciudad -> país
+      // Primero obtener IDs de ciudades que pertenecen a ese país
+      const { data: ciudadesPais } = await supabase
+        .from('ciudades')
+        .select('id_ciudad')
+        .eq('id_pais', pais);
+      
+      if (ciudadesPais && ciudadesPais.length > 0) {
+        const ciudadIds = ciudadesPais.map(c => c.id_ciudad);
+        query = query.in('id_ciudad', ciudadIds);
+      }
+    }
+
+    if (categoria) {
+      query = query.eq('id_categoria', categoria);
+    }
+
+    const { data: servicios, error } = await query;
 
     if (error) throw error;
 
-    // Formatear respuesta para que sea más plana
-    const serviciosFormateados = data?.map(s => ({
-      id: s.id_servicio,
-      nombre: s.nombre,
-      descripcion: s.descripcion,
-      precio: s.precio,
-      estado: s.estado,
-      cupos_disponibles: s.cupos_disponibles,
-      imagen: s.imagen,
-      duracion: s.duracion,
-      ciudad: s.ciudades?.nombre_ciudad,
-      pais: s.ciudades?.paises?.nombre_pais,
-      codigo_iso: s.ciudades?.paises?.codigo_iso,
-      categoria: s.categorias?.nombre_categoria,
-      id_ciudad: s.ciudades?.id_ciudad,
-      id_categoria: s.categorias?.id_categoria,
-      id_pais: s.ciudades?.paises?.id_pais
-    })) || [];
+    // Obtener datos relacionados manualmente
+    const [ciudadesRes, paisesRes, categoriasRes] = await Promise.all([
+      supabase.from('ciudades').select('*, paises(*)'),
+      supabase.from('paises').select('*'),
+      supabase.from('categorias').select('*')
+    ]);
+
+    const ciudadesMap = new Map(ciudadesRes.data?.map(c => [c.id_ciudad, c]) || []);
+    const categoriasMap = new Map(categoriasRes.data?.map(c => [c.id_categoria, c]) || []);
+
+    // Formatear respuesta
+    const serviciosFormateados = servicios?.map(s => {
+      const ciudad = ciudadesMap.get(s.id_ciudad);
+      const categoria = categoriasMap.get(s.id_categoria);
+      
+      return {
+        id_servicio: s.id_servicio,
+        nombre: s.nombre,
+        descripcion: s.descripcion,
+        precio: s.precio,
+        estado: s.estado,
+        cupos_disponibles: s.cupos_disponibles,
+        imagen: s.imagen,
+        duracion: s.duracion,
+        ciudad: ciudad?.nombre_ciudad,
+        pais: ciudad?.paises?.nombre_pais,
+        codigo_iso: ciudad?.paises?.codigo_iso,
+        categoria: categoria?.nombre_categoria,
+        id_ciudad: s.id_ciudad,
+        id_categoria: s.id_categoria,
+        id_pais: ciudad?.paises?.id_pais
+      };
+    }) || [];
 
     return res.json(formatResponse(true, serviciosFormateados));
   } catch (error) {
@@ -59,44 +83,42 @@ export const getServicioById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { data, error } = await supabase
+    const { data: servicio, error } = await supabase
       .from('servicios')
-      .select(`
-        id_servicio,
-        nombre,
-        descripcion,
-        precio,
-        estado,
-        cupos_disponibles,
-        imagen,
-        duracion,
-        ciudades!inner(id_ciudad, nombre_ciudad, paises!inner(id_pais, nombre_pais, codigo_iso)),
-        categorias!inner(id_categoria, nombre_categoria)
-      `)
+      .select('*')
       .eq('id_servicio', id)
       .single();
 
     if (error) throw error;
-    if (!data) {
+    if (!servicio) {
       return res.status(404).json(formatResponse(false, null, 'Servicio no encontrado'));
     }
 
+    // Obtener datos relacionados
+    const [{ data: ciudades }, { data: categorias }] = await Promise.all([
+      supabase.from('ciudades').select('*, paises(*)').eq('id_ciudad', servicio.id_ciudad),
+      supabase.from('categorias').select('*').eq('id_categoria', servicio.id_categoria)
+    ]);
+
+    const ciudad = ciudades?.[0];
+    const categoria = categorias?.[0];
+
     const servicioFormateado = {
-      id: data.id_servicio,
-      nombre: data.nombre,
-      descripcion: data.descripcion,
-      precio: data.precio,
-      estado: data.estado,
-      cupos_disponibles: data.cupos_disponibles,
-      imagen: data.imagen,
-      duracion: data.duracion,
-      ciudad: data.ciudades?.nombre_ciudad,
-      pais: data.ciudades?.paises?.nombre_pais,
-      codigo_iso: data.ciudades?.paises?.codigo_iso,
-      categoria: data.categorias?.nombre_categoria,
-      id_ciudad: data.ciudades?.id_ciudad,
-      id_categoria: data.categorias?.id_categoria,
-      id_pais: data.ciudades?.paises?.id_pais
+      id_servicio: servicio.id_servicio,
+      nombre: servicio.nombre,
+      descripcion: servicio.descripcion,
+      precio: servicio.precio,
+      estado: servicio.estado,
+      cupos_disponibles: servicio.cupos_disponibles,
+      imagen: servicio.imagen,
+      duracion: servicio.duracion,
+      ciudad: ciudad?.nombre_ciudad,
+      pais: ciudad?.paises?.nombre_pais,
+      codigo_iso: ciudad?.paises?.codigo_iso,
+      categoria: categoria?.nombre_categoria,
+      id_ciudad: servicio.id_ciudad,
+      id_categoria: servicio.id_categoria,
+      id_pais: ciudad?.paises?.id_pais
     };
 
     return res.json(formatResponse(true, servicioFormateado));
@@ -127,7 +149,7 @@ export const getCiudades = async (req, res) => {
 
     let query = supabase
       .from('ciudades')
-      .select('*, paises!inner(nombre_pais)')
+      .select('*, paises(id_pais, nombre_pais)')
       .order('nombre_ciudad');
 
     if (pais) {

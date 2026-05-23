@@ -188,6 +188,8 @@ export const AppProvider = ({ children }) => {
       login,
       register,
       logout,
+      setUsuario,      // ← AGREGAR
+      setEsAdmin,      // ← AGREGAR
       agregarServicio,
       editarServicio,
       eliminarServicio,
