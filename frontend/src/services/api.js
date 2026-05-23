@@ -10,18 +10,43 @@ const fetchWithAuth = async (endpoint, options = {}) => {
     ...options.headers,
   };
 
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers,
+    });
 
-  const data = await response.json();
+    // ✅ Si la respuesta está vacía (204 No Content, etc.)
+    if (response.status === 204) {
+      return { success: true };
+    }
 
-  if (!response.ok) {
-    throw new Error(data.message || `Error ${response.status}`);
+    // ✅ Intentar parsear JSON, si falla manejar el error
+    let data;
+    const contentType = response.headers.get('content-type');
+    
+    if (contentType && contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      data = { message: text || `Error ${response.status}` };
+    }
+
+    if (!response.ok) {
+      throw new Error(data.message || `Error ${response.status}: ${response.statusText}`);
+    }
+
+    return data;
+  } catch (error) {
+    // ✅ Distinguir entre error de red/CORS y error del servidor
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('No se pudo conectar con el servidor. Verifica tu conexión o que el servidor esté activo.');
+    }
+    if (error.message.includes('Failed to fetch')) {
+      throw new Error('Error de conexión. Posible problema de CORS o el servidor no responde.');
+    }
+    throw error;
   }
-
-  return data;
 };
 
 // ==================== AUTH ====================

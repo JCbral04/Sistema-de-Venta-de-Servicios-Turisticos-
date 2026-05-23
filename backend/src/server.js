@@ -19,7 +19,6 @@ const allowedOrigins = [
   'http://localhost:5173',      // Vite dev server
   'http://localhost:3000',      // React dev server alternativo
   'https://jcbral04.github.io',  // GitHub Pages (dominio base)
-  'https://jcbral04.github.io/Sistema-de-Venta-de-Servicios-Turisticos-', // GitHub Pages (con path)
   process.env.FRONTEND_URL      // Variable de entorno en Render (opcional)
 ].filter(Boolean); // Elimina undefined/null si FRONTEND_URL no está seteada
 
